@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # Main API service
+  databaserag-api:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: runtime
+    container_name: databaserag-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+      - DOTNET_RUNNING_IN_CONTAINER=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Development SQL Server (optional - comment out if using external DB)
+  # sql-server:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: databaserag-sqlserver
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - SA_PASSWORD=YourStrong!Passw0rd
+  #     - MSSQL_PID=Developer
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - sqlserver_data:/var/opt/mssql
+  #   restart: unless-stopped
+
+  # Test runner service (for running tests in isolation)
+  databaserag-tests:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: test
+    container_name: databaserag-tests
+    volumes:
+      - ./test-results:/app/test-results
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Test
+    profiles:
+      - testing
+
+  # Development tools container (optional)
+  databaserag-dev:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: build
+    container_name: databaserag-dev
+    volumes:
+      - .:/workspace
+      - ~/.nuget/packages:/root/.nuget/packages
+    working_dir: /workspace
+    command: tail -f /dev/null
+    profiles:
+      - development
+
+# volumes:
+#   sqlserver_data:
+#     driver: local
+
+networks:
+  default:
+    name: databaserag-network
+    driver: bridge

@@ -1,0 +1,87 @@
+# .NET build artifacts
+**/bin/
+**/obj/
+**/out/
+
+# Build outputs that might exist  
+**/publish/
+!src/DatabaseRag.Api/publish/
+**/wwwroot/
+
+# Development files
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# Test results
+**/TestResults/
+**/test-results/
+**/coverage.xml
+**/coverage.json
+
+# Package files
+**/*.nupkg
+**/*.snupkg
+
+# Log files
+**/*.log
+**/logs/
+
+# Temporary files
+**/tmp/
+**/temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose.yml
+docker-compose.*.yml
+
+# Documentation (keep only API-specific docs)
+*.md
+!src/DatabaseRag.Api/README.md
+!src/DatabaseRag.Api/API-Testing-Guide.md
+
+# Scripts and auxiliary files
+run-both.ps1
+IMPLEMENTATION-SUMMARY.md
+PRODUCTION-README.md
+REFACTORING-SUMMARY.md
+
+# IDE and editor files
+**/*.suo
+**/*.user
+**/*.userosscache
+**/*.sln.docstates
+
+# Package restore
+**/.nuget/
+
+# JetBrains Rider
+**/.idea/
+**/*.sln.iml
+
+# Visual Studio Code
+**/.vscode/
+
+# Node modules (if any)
+**/node_modules/
+
+# Other projects (only include API project)
+src/DatabaseRag.Core.Application/
+src/DatabaseRag.Core.Domain/
+src/DatabaseRag.Shared/
+src/DatabaseRag.Tests/
+src/DatabaseRag.WebClient/
+src/DatabaseRAG.Agent.Cosmos/
+src/DatabaseRAG.Agent.Sql/
+src/DatabaseRAG.Brain.Services/
