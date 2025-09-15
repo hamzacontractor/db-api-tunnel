@@ -135,24 +135,27 @@ public static class CosmosController
                     return Results.BadRequest(new { error = "ContainerName is required" });
                 }
 
-                var response = await cosmosService.ExecuteQueryAsync(request, connectionString, context.RequestAborted);
-                return response.Success ? Results.Ok(response) : Results.BadRequest(response);
+                var response = await cosmosService.ExecuteQueryAsGenericAsync(request, connectionString, context.RequestAborted);
+                return Results.Ok(response);
             }
             catch (Exception ex)
             {
-                var errorResponse = new CosmosQueryResponse
+                var errorResponse = new GenericQueryResponse
                 {
-                    Success = false,
-                    Error = ex.Message,
-                    AnalyticalDetails = new Models.Schema.CosmosAnalyticalDetails
+                    Description = $"Query execution failed: {ex.Message}",
+                    Data = new QueryData(),
+                    Conclusion = "An error occurred while executing the query",
+                    Metadata = new Meta
                     {
-                        ItemCount = 0,
-                        ExecutionTimeMs = 0,
-                        RequestCharge = 0,
-                        Query = request.Query,
-                        DatabaseName = request.DatabaseName,
-                        ContainerName = request.ContainerName,
-                        Timestamp = DateTime.UtcNow
+                        Source = "Cosmos DB",
+                        Properties = new Dictionary<string, object?>
+                        {
+                            ["error"] = ex.Message,
+                            ["query"] = request.Query,
+                            ["databaseName"] = request.DatabaseName,
+                            ["containerName"] = request.ContainerName,
+                            ["timestamp"] = DateTime.UtcNow
+                        }
                     }
                 };
 
@@ -161,9 +164,9 @@ public static class CosmosController
         })
         .WithName("ExecuteCosmosQuery")
         .WithSummary("Executes a Cosmos DB SQL query")
-        .WithDescription("Executes a SQL query against the specified Cosmos DB container and returns the results with analytical details")
-        .Produces<CosmosQueryResponse>(200)
-        .Produces<CosmosQueryResponse>(400);
+        .WithDescription("Executes a SQL query against the specified Cosmos DB container and returns standardized results with columns and rows")
+        .Produces<GenericQueryResponse>(200)
+        .Produces<GenericQueryResponse>(400);
 
         return app;
     }

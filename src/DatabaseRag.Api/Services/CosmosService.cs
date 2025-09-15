@@ -309,6 +309,189 @@ public class CosmosService : ICosmosService
     }
 
     /// <summary>
+    /// Executes a SQL query against a Cosmos database and returns standardized format
+    /// </summary>
+    /// <param name="request">The Cosmos query request</param>
+    /// <param name="connectionString">The Cosmos DB connection string</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Generic query response with standardized format</returns>
+    public async Task<GenericQueryResponse> ExecuteQueryAsGenericAsync(CosmosQueryRequest request, string connectionString, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Execute the query using existing logic
+            var cosmosResponse = await ExecuteQueryAsync(request, connectionString, cancellationToken);
+            
+            if (!cosmosResponse.Success)
+            {
+                return new GenericQueryResponse
+                {
+                    Description = $"Query execution failed: {cosmosResponse.Error}",
+                    Data = new QueryData(),
+                    Conclusion = "Query failed to execute successfully",
+                    Metadata = new Meta
+                    {
+                        Source = "Cosmos DB",
+                        Properties = new Dictionary<string, object?>
+                        {
+                            ["error"] = cosmosResponse.Error,
+                            ["databaseName"] = request.DatabaseName,
+                            ["containerName"] = request.ContainerName,
+                            ["query"] = request.Query
+                        }
+                    }
+                };
+            }
+
+            return MapCosmosResponseToGeneric(cosmosResponse, request);
+        }
+        catch (Exception ex)
+        {
+            return new GenericQueryResponse
+            {
+                Description = $"Query execution encountered an error: {ex.Message}",
+                Data = new QueryData(),
+                Conclusion = "Query execution failed due to an unexpected error",
+                Metadata = new Meta
+                {
+                    Source = "Cosmos DB",
+                    Properties = new Dictionary<string, object?>
+                    {
+                        ["error"] = ex.Message,
+                        ["databaseName"] = request.DatabaseName,
+                        ["containerName"] = request.ContainerName,
+                        ["query"] = request.Query
+                    }
+                }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Maps CosmosQueryResponse to GenericQueryResponse format
+    /// </summary>
+    /// <param name="cosmosResponse">The original Cosmos response</param>
+    /// <param name="request">The original request for context</param>
+    /// <returns>Standardized generic response</returns>
+    private static GenericQueryResponse MapCosmosResponseToGeneric(CosmosQueryResponse cosmosResponse, CosmosQueryRequest request)
+    {
+        var data = cosmosResponse.Data ?? new List<Dictionary<string, JsonElement>>();
+        var details = cosmosResponse.AnalyticalDetails;
+        
+        // Extract columns deterministically
+        var columns = CosmosResultAnalyzer.ExtractColumns(data);
+        
+        // Convert rows to standard format
+        var rows = CosmosResultAnalyzer.ConvertToStandardRows(data);
+        
+        // Generate description
+        var description = GenerateQueryDescription(data.Count, columns.Length, details);
+        
+        // Generate conclusion
+        var conclusion = GenerateQueryConclusion(data, details);
+        
+        return new GenericQueryResponse
+        {
+            Description = description,
+            Data = new QueryData
+            {
+                Columns = columns,
+                Rows = rows
+            },
+            Conclusion = conclusion,
+            Metadata = new Meta
+            {
+                Source = "Cosmos DB",
+                Properties = new Dictionary<string, object?>
+                {
+                    ["databaseName"] = request.DatabaseName,
+                    ["containerName"] = request.ContainerName,
+                    ["executionTimeMs"] = details?.ExecutionTimeMs ?? 0,
+                    ["requestCharge"] = details?.RequestCharge ?? 0,
+                    ["activityId"] = details?.ActivityId,
+                    ["totalRecords"] = data.Count,
+                    ["businessColumnCount"] = details?.BusinessColumnCount ?? 0,
+                    ["schemaComplexity"] = details?.SchemaComplexity,
+                    ["jsonQuality"] = details?.JsonQuality,
+                    ["queryType"] = details?.QueryType ?? "Cosmos DB SQL"
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Generates a human-readable description of the query results
+    /// </summary>
+    /// <param name="rowCount">Number of rows returned</param>
+    /// <param name="columnCount">Number of columns in results</param>
+    /// <param name="details">Analytical details from execution</param>
+    /// <returns>Description string</returns>
+    private static string GenerateQueryDescription(int rowCount, int columnCount, CosmosAnalyticalDetails? details)
+    {
+        if (rowCount == 0)
+            return "Query executed successfully but returned no results.";
+            
+        var description = $"Query returned {rowCount} record{(rowCount == 1 ? "" : "s")} with {columnCount} column{(columnCount == 1 ? "" : "s")}.";
+        
+        if (details != null)
+        {
+            description += $" Execution completed in {details.ExecutionTimeMs}ms consuming {details.RequestCharge:F2} RU.";
+            
+            if (details.HasBusinessData)
+            {
+                description += $" Results contain {details.BusinessColumnCount} business-relevant column{(details.BusinessColumnCount == 1 ? "" : "s")}.";
+            }
+        }
+        
+        return description;
+    }
+
+    /// <summary>
+    /// Generates a summary conclusion about the query results
+    /// </summary>
+    /// <param name="data">Query result data</param>
+    /// <param name="details">Analytical details from execution</param>
+    /// <returns>Conclusion string</returns>
+    private static string GenerateQueryConclusion(List<Dictionary<string, JsonElement>> data, CosmosAnalyticalDetails? details)
+    {
+        if (data.Count == 0)
+            return "No data was found matching the query criteria.";
+            
+        var conclusion = $"Successfully retrieved {data.Count} record{(data.Count == 1 ? "" : "s")} from Cosmos DB.";
+        
+        if (details != null)
+        {
+            if (!details.HasBusinessData)
+            {
+                conclusion += " Results contain primarily system metadata columns.";
+            }
+            else
+            {
+                switch (details.SchemaComplexity?.ToLower())
+                {
+                    case "simple":
+                        conclusion += " Data has a simple structure with basic data types.";
+                        break;
+                    case "moderate":
+                        conclusion += " Data has moderate complexity with some nested structures.";
+                        break;
+                    case "complex":
+                    case "very complex":
+                        conclusion += " Data contains complex nested objects and arrays.";
+                        break;
+                }
+            }
+            
+            if (details.JsonQuality?.Contains("Poor") == true)
+            {
+                conclusion += " Note: Results contain a high proportion of null values.";
+            }
+        }
+        
+        return conclusion;
+    }
+
+    /// <summary>
     /// Gets detailed JSON type information from a JsonElement including array element types
     /// </summary>
     /// <param name="element">The JsonElement to analyze</param>

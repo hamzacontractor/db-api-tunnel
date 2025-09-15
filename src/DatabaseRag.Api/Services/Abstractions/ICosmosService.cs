@@ -34,4 +34,13 @@ public interface ICosmosService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Cosmos query response with results</returns>
     Task<CosmosQueryResponse> ExecuteQueryAsync(CosmosQueryRequest request, string connectionString, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a SQL query against a Cosmos database and returns standardized format
+    /// </summary>
+    /// <param name="request">The Cosmos query request</param>
+    /// <param name="connectionString">The Cosmos DB connection string</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Generic query response with standardized format</returns>
+    Task<GenericQueryResponse> ExecuteQueryAsGenericAsync(CosmosQueryRequest request, string connectionString, CancellationToken cancellationToken = default);
 }

@@ -1,0 +1,76 @@
+{
+  "description": "Query returned 2 records with 6 columns. Execution completed in 45ms consuming 2.85 RU. Results contain 5 business-relevant columns.",
+  "data": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "string",
+        "isNullable": false
+      },
+      {
+        "name": "address",
+        "type": "object",
+        "isNullable": true  
+      },
+      {
+        "name": "age",
+        "type": "number",
+        "isNullable": true
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "isNullable": true
+      },
+      {
+        "name": "isActive",
+        "type": "boolean", 
+        "isNullable": false
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "isNullable": false
+      }
+    ],
+    "rows": [
+      {
+        "id": "customer-001",
+        "address": {
+          "street": "123 Main St",
+          "city": "Seattle", 
+          "state": "WA",
+          "zipCode": "98101"
+        },
+        "age": 35,
+        "email": "john.smith@example.com",
+        "isActive": true,
+        "name": "John Smith"
+      },
+      {
+        "id": "customer-002",
+        "address": null,
+        "age": 28,
+        "email": "jane.doe@example.com", 
+        "isActive": true,
+        "name": "Jane Doe"
+      }
+    ]
+  },
+  "conclusion": "Successfully retrieved 2 records from Cosmos DB. Data has moderate complexity with some nested structures.",
+  "metadata": {
+    "source": "Cosmos DB",
+    "properties": {
+      "databaseName": "CustomerDB",
+      "containerName": "Customers",
+      "executionTimeMs": 45,
+      "requestCharge": 2.85,
+      "activityId": "12345678-1234-1234-1234-123456789012",
+      "totalRecords": 2,
+      "businessColumnCount": 5,
+      "schemaComplexity": "Moderate",
+      "jsonQuality": "Good - Some structure",
+      "queryType": "Cosmos DB SQL"
+    }
+  }
+}

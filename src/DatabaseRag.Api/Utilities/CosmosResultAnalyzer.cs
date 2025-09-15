@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DatabaseRag.Api.Models.Responses;
 using DatabaseRag.Api.Models.Schema;
 
 namespace DatabaseRag.Api.Utilities;
@@ -162,6 +163,127 @@ public static class CosmosResultAnalyzer
         if (complexRatio > 0.3) return "Rich - Complex structure";
         if (complexRatio > 0.1) return "Good - Some structure";
         return "Basic - Simple types";
+    }
+
+    /// <summary>
+    /// Extracts columns from Cosmos query results in deterministic order
+    /// </summary>
+    /// <param name="results">Query results with JsonElement values</param>
+    /// <returns>Array of column definitions with consistent ordering</returns>
+    public static Column[] ExtractColumns(IEnumerable<Dictionary<string, JsonElement>> results)
+    {
+        if (!results.Any()) 
+            return Array.Empty<Column>();
+
+        var firstItem = results.First();
+        var columns = new List<Column>();
+
+        // Sort columns for deterministic ordering: system columns first, then alphabetical
+        var systemColumns = new HashSet<string> { "id", "_rid", "_self", "_etag", "_attachments", "_ts", "_lsn" };
+        var sortedKeys = firstItem.Keys.OrderBy(key => 
+        {
+            if (systemColumns.Contains(key.ToLower()))
+                return $"0_{key}"; // System columns first
+            return $"1_{key}"; // Business columns alphabetically
+        });
+
+        foreach (var key in sortedKeys)
+        {
+            var value = firstItem[key];
+            var column = new Column
+            {
+                Name = key,
+                Type = MapJsonValueKindToColumnType(value.ValueKind),
+                IsNullable = IsColumnNullable(key, results)
+            };
+            columns.Add(column);
+        }
+
+        return columns.ToArray();
+    }
+
+    /// <summary>
+    /// Maps JsonValueKind to standardized column type names
+    /// </summary>
+    /// <param name="valueKind">The JsonValueKind to map</param>
+    /// <returns>Standardized type name</returns>
+    private static string MapJsonValueKindToColumnType(JsonValueKind valueKind)
+    {
+        return valueKind switch
+        {
+            JsonValueKind.String => "string",
+            JsonValueKind.Number => "number",
+            JsonValueKind.True or JsonValueKind.False => "boolean",
+            JsonValueKind.Array => "array",
+            JsonValueKind.Object => "object", 
+            JsonValueKind.Null => "null",
+            _ => "unknown"
+        };
+    }
+
+    /// <summary>
+    /// Determines if a column can contain null values by sampling the result set
+    /// </summary>
+    /// <param name="columnName">Name of the column to check</param>
+    /// <param name="results">Query results to sample</param>
+    /// <returns>True if column can contain nulls</returns>
+    private static bool IsColumnNullable(string columnName, IEnumerable<Dictionary<string, JsonElement>> results)
+    {
+        // Sample up to 100 rows to check for nulls
+        return results.Take(100).Any(row => 
+            row.TryGetValue(columnName, out var value) && value.ValueKind == JsonValueKind.Null);
+    }
+
+    /// <summary>
+    /// Converts JsonElement results to standardized row format with consistent object types
+    /// </summary>
+    /// <param name="results">Query results with JsonElement values</param>
+    /// <returns>Array of row dictionaries with object values</returns>
+    public static Dictionary<string, object?>[] ConvertToStandardRows(IEnumerable<Dictionary<string, JsonElement>> results)
+    {
+        return results.Select(ConvertRowToStandardFormat).ToArray();
+    }
+
+    /// <summary>
+    /// Converts a single row from JsonElement values to standard object values
+    /// </summary>
+    /// <param name="row">Row with JsonElement values</param>
+    /// <returns>Row with standard object values</returns>
+    private static Dictionary<string, object?> ConvertRowToStandardFormat(Dictionary<string, JsonElement> row)
+    {
+        var standardRow = new Dictionary<string, object?>();
+        
+        foreach (var kvp in row)
+        {
+            standardRow[kvp.Key] = ConvertJsonElementToStandardValue(kvp.Value);
+        }
+        
+        return standardRow;
+    }
+
+    /// <summary>
+    /// Converts a JsonElement to appropriate .NET object type for serialization
+    /// </summary>
+    /// <param name="element">JsonElement to convert</param>
+    /// <returns>Standard .NET object</returns>
+    private static object? ConvertJsonElementToStandardValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Null => null,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal : 
+                                   element.TryGetInt64(out var longVal) ? longVal : 
+                                   element.GetDouble(),
+            JsonValueKind.Array => element.EnumerateArray()
+                                         .Select(ConvertJsonElementToStandardValue)
+                                         .ToArray(),
+            JsonValueKind.Object => element.EnumerateObject()
+                                          .ToDictionary(p => p.Name, p => ConvertJsonElementToStandardValue(p.Value)),
+            _ => element.GetRawText()
+        };
     }
 
     /// <summary>
