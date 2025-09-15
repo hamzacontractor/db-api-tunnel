@@ -1,4 +1,4 @@
-# DatabaseRag API Tunnel
+# Database API Tunnel
 
 A high-performance .NET 8 REST API service providing secure database access and query capabilities for SQL Server and Cosmos DB databases. This project serves as a database tunnel service, enabling safe database operations through a controlled, containerized interface.
 
@@ -7,11 +7,11 @@ A high-performance .NET 8 REST API service providing secure database access and 
 ### Local Development
 ```bash
 # Build and run the API
-cd src/DatabaseRag.Api
+cd src/Database.Api.Tunnel
 dotnet run
 
 # Run tests
-cd ../DatabaseRag.Api.Tests
+cd ../Database.Api.Tunnel.Tests
 dotnet test
 ```
 
@@ -32,14 +32,14 @@ docker-compose up -d
 ```
 db-api-tunnel/
 ├── src/                              # Source code
-│   ├── DatabaseRag.Api/              # Main API project
+│   ├── Database.Api.Tunnel/          # Main API project
 │   │   ├── Controllers/              # API endpoints (Minimal API style)
 │   │   ├── Services/                 # Business logic implementations
 │   │   ├── Models/                   # Request/response DTOs and schema models
 │   │   ├── Extensions/               # DI configuration and extensions
 │   │   ├── Utilities/                # Helper classes and analyzers
 │   │   └── README.md                 # Complete API documentation
-│   └── DatabaseRag.Api.Tests/        # Comprehensive test suite
+│   └── Database.Api.Tunnel.Tests/    # Comprehensive test suite
 │       ├── Controllers/              # Controller tests
 │       ├── Services/                 # Service tests
 │       ├── Integration/              # Integration tests
@@ -100,7 +100,7 @@ db-api-tunnel/
 cd .docker
 docker-compose up -d                    # Start API service
 docker-compose --profile testing up    # Run with tests
-docker-compose logs -f databaserag-api  # View logs
+docker-compose logs -f database-api-tunnel  # View logs
 docker-compose down                     # Stop services
 ```
 
@@ -153,9 +153,9 @@ build-and-push.bat v1.0              # Build and push to ACR
 
 ## 📚 Documentation
 
-- **[Complete API Documentation](src/DatabaseRag.Api/README.md)** - Detailed API reference, architecture, and examples
+- **[Complete API Documentation](src/Database.Api.Tunnel/README.md)** - Detailed API reference, architecture, and examples
 - **[Docker Documentation](.docker/README.md)** - Containerization guide and deployment instructions
-- **[Test Documentation](src/DatabaseRag.Api.Tests/)** - Test strategy and execution
+- **[Test Documentation](src/Database.Api.Tunnel.Tests/)** - Test strategy and execution
 
 ## 🔧 Development
 
@@ -167,13 +167,13 @@ build-and-push.bat v1.0              # Build and push to ACR
 ### Build and Test
 ```bash
 # Build solution
-dotnet build src/DatabaseRag.Api
+dotnet build src/Database.Api.Tunnel
 
 # Run all tests
-dotnet test src/DatabaseRag.Api.Tests
+dotnet test src/Database.Api.Tunnel.Tests
 
 # Run with hot reload
-dotnet watch run --project src/DatabaseRag.Api
+dotnet watch run --project src/Database.Api.Tunnel
 ```
 
 ### Architecture Principles
@@ -195,4 +195,4 @@ dotnet watch run --project src/DatabaseRag.Api
 
 ---
 
-For detailed API documentation, examples, and deployment guides, see the **[complete documentation](src/DatabaseRag.Api/README.md)**.
+For detailed API documentation, examples, and deployment guides, see the **[complete documentation](src/Database.Api.Tunnel/README.md)**.
