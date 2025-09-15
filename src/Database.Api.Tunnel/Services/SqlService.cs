@@ -197,7 +197,7 @@ public class SqlService : ISqlService
             }
 
             Console.WriteLine($"[DEBUG] SQL Query: {request.Query}");
-            Console.WriteLine($"[DEBUG] Connection String: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+            // [SECURITY] Connection string logging removed to avoid exposure of sensitive information.
 
             var results = new List<Dictionary<string, object>>();
             var columnInfo = new List<ColumnMetadata>();
