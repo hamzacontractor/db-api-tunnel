@@ -30,30 +30,37 @@ if errorlevel 1 (
 
 echo 🔨 Building container...
 
+REM Change to src directory for proper context
+cd ..\src
+
 REM Try multi-stage build first
-docker build -t "%FULL_NAME%" .
+docker build -f ..\.docker\Dockerfile -t "%FULL_NAME%" .
 if errorlevel 1 (
     echo ⚠️  Multi-stage build failed. Trying pre-built approach...
     
     REM Fallback to pre-built approach
     echo 🔨 Building application locally first...
-    cd src\DatabaseRag.Api
+    cd DatabaseRag.Api
     dotnet publish -c Release -o .\publish
     if errorlevel 1 (
         echo ❌ Failed to build application locally
+        cd ..\..\docker
         exit /b 1
     )
-    cd ..\..
+    cd ..
     
     echo 🔨 Building container with pre-built application...
-    docker build -f Dockerfile.runtime -t "%FULL_NAME%" .
+    docker build -f ..\.docker\Dockerfile.runtime -t "%FULL_NAME%" .
     if errorlevel 1 (
         echo ❌ Both build approaches failed. Please check the error messages above.
+        cd ..\.docker
         exit /b 1
     )
     echo ✅ Container built successfully using pre-built approach!
+    cd ..\.docker
 ) else (
     echo ✅ Container built successfully using multi-stage build!
+    cd ..\.docker
 )
 
 REM Get image info

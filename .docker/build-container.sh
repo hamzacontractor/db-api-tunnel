@@ -26,23 +26,29 @@ fi
 
 echo "🔨 Building container..."
 
+# Change to src directory for proper context
+cd ../src
+
 # Try multi-stage build first
-if docker build -t "${FULL_NAME}" .; then
+if docker build -f ../.docker/Dockerfile -t "${FULL_NAME}" .; then
     echo "✅ Container built successfully using multi-stage build!"
+    cd ../.docker
 else
     echo "⚠️  Multi-stage build failed. Trying pre-built approach..."
     
     # Fallback to pre-built approach
     echo "🔨 Building application locally first..."
-    cd src/DatabaseRag.Api
+    cd DatabaseRag.Api
     dotnet publish -c Release -o ./publish
-    cd ../..
+    cd ..
     
     echo "🔨 Building container with pre-built application..."
-    if docker build -f Dockerfile.runtime -t "${FULL_NAME}" .; then
+    if docker build -f ../.docker/Dockerfile.runtime -t "${FULL_NAME}" .; then
         echo "✅ Container built successfully using pre-built approach!"
+        cd ../.docker
     else
         echo "❌ Both build approaches failed. Please check the error messages above."
+        cd ../.docker
         exit 1
     fi
 fi

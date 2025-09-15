@@ -4,27 +4,27 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
 # Copy project files first to leverage Docker layer caching
-COPY src/DatabaseRag.Api/DatabaseRag.Api.csproj src/DatabaseRag.Api/
-COPY src/DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj src/DatabaseRag.Api.Tests/
+COPY DatabaseRag.Api/DatabaseRag.Api.csproj DatabaseRag.Api/
+COPY DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj DatabaseRag.Api.Tests/
 
 # Restore dependencies for both projects (separate layer for better caching)
-RUN dotnet restore src/DatabaseRag.Api/DatabaseRag.Api.csproj
-RUN dotnet restore src/DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj
+RUN dotnet restore DatabaseRag.Api/DatabaseRag.Api.csproj
+RUN dotnet restore DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj
 
 # Copy source code for both projects
-COPY src/DatabaseRag.Api/ src/DatabaseRag.Api/
-COPY src/DatabaseRag.Api.Tests/ src/DatabaseRag.Api.Tests/
+COPY DatabaseRag.Api/ DatabaseRag.Api/
+COPY DatabaseRag.Api.Tests/ DatabaseRag.Api.Tests/
 
 # Build both projects
-RUN dotnet build src/DatabaseRag.Api/DatabaseRag.Api.csproj -c Release --no-restore
-RUN dotnet build src/DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj -c Release --no-restore
+RUN dotnet build DatabaseRag.Api/DatabaseRag.Api.csproj -c Release --no-restore
+RUN dotnet build DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj -c Release --no-restore
 
 # Stage 2: Test stage (optional - can be skipped in production builds)
 FROM build AS test
 WORKDIR /app
 
 # Run tests (this stage can be targeted specifically for CI/CD)
-RUN dotnet test src/DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj \
+RUN dotnet test DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj \
     -c Release \
     --no-build \
     --no-restore \
@@ -36,7 +36,7 @@ FROM build AS publish
 WORKDIR /app
 
 # Publish the API in Release mode
-RUN dotnet publish src/DatabaseRag.Api/DatabaseRag.Api.csproj \
+RUN dotnet publish DatabaseRag.Api/DatabaseRag.Api.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \

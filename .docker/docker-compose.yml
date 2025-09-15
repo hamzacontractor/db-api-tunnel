@@ -4,8 +4,8 @@ services:
   # Main API service
   databaserag-api:
     build:
-      context: .
-      dockerfile: .docker/Dockerfile
+      context: ../src
+      dockerfile: ../.docker/Dockerfile
       target: runtime
     container_name: databaserag-api
     ports:
@@ -40,8 +40,8 @@ services:
   # Test runner service (for running tests in isolation)
   databaserag-tests:
     build:
-      context: .
-      dockerfile: .docker/Dockerfile
+      context: ../src
+      dockerfile: ../.docker/Dockerfile
       target: test
     container_name: databaserag-tests
     volumes:
@@ -54,8 +54,8 @@ services:
   # Development tools container (optional)
   databaserag-dev:
     build:
-      context: .
-      dockerfile: .docker/Dockerfile
+      context: ../src
+      dockerfile: ../.docker/Dockerfile
       target: build
     container_name: databaserag-dev
     volumes:
