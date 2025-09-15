@@ -1,5 +1,0 @@
-{
-  "query": "SELECT c.id, c.name, c.email, c.age, c.address, c.isActive FROM c WHERE c.isActive = true",
-  "databaseName": "CustomerDB", 
-  "containerName": "Customers"
-}

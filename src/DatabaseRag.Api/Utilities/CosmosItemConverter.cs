@@ -14,20 +14,63 @@ public static class CosmosItemConverter
     /// <returns>Dictionary representation of the item using JsonElement to preserve structure</returns>
     public static Dictionary<string, JsonElement> ConvertCosmosItemToDictionary(dynamic item)
     {
-        // Serialize the SDK item to JSON to have a stable representation
-        var json = JsonSerializer.Serialize(item);
-        Console.WriteLine($"[DEBUG] Raw item JSON: {json}");
+        // The issue is that JsonSerializer.Serialize() doesn't handle Cosmos SDK dynamic objects properly
+        // Instead, let's try to convert it more directly
 
-        using var doc = JsonDocument.Parse(json);
+        try
+        {
+            // First, check if we can convert it to a string representation
+            var itemType = item.GetType();
+            Console.WriteLine($"[DEBUG] Item type: {itemType.Name}");
+
+            // Try to see if the item has a ToString method that gives us JSON
+            var jsonString = item.ToString();
+            Console.WriteLine($"[DEBUG] Item ToString: {jsonString}");
+
+            // If ToString gives us valid JSON, use that
+            if (jsonString.StartsWith("{") && jsonString.EndsWith("}"))
+            {
+                var directJsonDoc = JsonDocument.Parse(jsonString);
+                var directRoot = directJsonDoc.RootElement;
+
+                if (directRoot.ValueKind == JsonValueKind.Object)
+                {
+                    var directResult = ConvertJsonElementToDictionary(directRoot);
+
+                    // Clone all JsonElements to make them independent
+                    var directClonedResult = new Dictionary<string, JsonElement>();
+                    foreach (var kvp in directResult)
+                    {
+                        directClonedResult[kvp.Key] = kvp.Value.Clone();
+                    }
+                    directJsonDoc.Dispose();
+                    return directClonedResult;
+                }
+                directJsonDoc.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DEBUG] Direct conversion failed: {ex.Message}");
+        }
+
+        // Fallback: Serialize the SDK item to JSON to have a stable representation
+        var json = JsonSerializer.Serialize(item);
+        Console.WriteLine($"[DEBUG] Fallback serialized JSON: {json}");
+
+        // Parse the JSON and create a new JsonDocument that we own and control disposal of
+        var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
         // Enhanced debugging for root element
         Console.WriteLine($"[DEBUG] Root element type: {root.ValueKind}");
 
+        Dictionary<string, JsonElement> result;
+
         // If root is an object, convert properties -> dictionary
         if (root.ValueKind == JsonValueKind.Object)
         {
-            var result = ConvertJsonElementToDictionary(root);
+            result = ConvertJsonElementToDictionary(root);
             Console.WriteLine($"[DEBUG] Converted dictionary has {result.Count} properties");
             // Log first 3 properties using proper enumeration
             var count = 0;
@@ -37,17 +80,29 @@ public static class CosmosItemConverter
                 Console.WriteLine($"[DEBUG] Property '{kvp.Key}': {kvp.Value.ValueKind} = {kvp.Value.GetRawText()}");
                 count++;
             }
-            return result;
         }
-
         // If root is an array, convert each item and return as a single dictionary entry
-        if (root.ValueKind == JsonValueKind.Array)
+        else if (root.ValueKind == JsonValueKind.Array)
         {
-            return new Dictionary<string, JsonElement> { ["_array"] = root };
+            result = new Dictionary<string, JsonElement> { ["_array"] = root.Clone() };
+        }
+        // If primitive (string/number/bool/null), return as single value under key "_value"
+        else
+        {
+            result = new Dictionary<string, JsonElement> { ["_value"] = root.Clone() };
         }
 
-        // If primitive (string/number/bool/null), return as single value under key "_value"
-        return new Dictionary<string, JsonElement> { ["_value"] = root };
+        // Clone all JsonElements to make them independent of the original JsonDocument
+        var clonedResult = new Dictionary<string, JsonElement>();
+        foreach (var kvp in result)
+        {
+            clonedResult[kvp.Key] = kvp.Value.Clone();
+        }
+
+        // Now we can safely dispose the document
+        doc.Dispose();
+
+        return clonedResult;
     }
 
     /// <summary>
@@ -63,7 +118,8 @@ public static class CosmosItemConverter
 
         foreach (var property in element.EnumerateObject())
         {
-            result[property.Name] = property.Value;
+            // Clone the JsonElement to make it independent of the original JsonDocument
+            result[property.Name] = property.Value.Clone();
 
             // Enhanced debugging for all properties
             Console.WriteLine($"[DEBUG] Property '{property.Name}' (type: {property.Value.ValueKind}): {property.Value.GetRawText()}");

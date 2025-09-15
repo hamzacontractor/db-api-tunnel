@@ -172,7 +172,7 @@ public static class CosmosResultAnalyzer
     /// <returns>Array of column definitions with consistent ordering</returns>
     public static Column[] ExtractColumns(IEnumerable<Dictionary<string, JsonElement>> results)
     {
-        if (!results.Any()) 
+        if (!results.Any())
             return Array.Empty<Column>();
 
         var firstItem = results.First();
@@ -180,7 +180,7 @@ public static class CosmosResultAnalyzer
 
         // Sort columns for deterministic ordering: system columns first, then alphabetical
         var systemColumns = new HashSet<string> { "id", "_rid", "_self", "_etag", "_attachments", "_ts", "_lsn" };
-        var sortedKeys = firstItem.Keys.OrderBy(key => 
+        var sortedKeys = firstItem.Keys.OrderBy(key =>
         {
             if (systemColumns.Contains(key.ToLower()))
                 return $"0_{key}"; // System columns first
@@ -215,7 +215,7 @@ public static class CosmosResultAnalyzer
             JsonValueKind.Number => "number",
             JsonValueKind.True or JsonValueKind.False => "boolean",
             JsonValueKind.Array => "array",
-            JsonValueKind.Object => "object", 
+            JsonValueKind.Object => "object",
             JsonValueKind.Null => "null",
             _ => "unknown"
         };
@@ -230,7 +230,7 @@ public static class CosmosResultAnalyzer
     private static bool IsColumnNullable(string columnName, IEnumerable<Dictionary<string, JsonElement>> results)
     {
         // Sample up to 100 rows to check for nulls
-        return results.Take(100).Any(row => 
+        return results.Take(100).Any(row =>
             row.TryGetValue(columnName, out var value) && value.ValueKind == JsonValueKind.Null);
     }
 
@@ -252,12 +252,12 @@ public static class CosmosResultAnalyzer
     private static Dictionary<string, object?> ConvertRowToStandardFormat(Dictionary<string, JsonElement> row)
     {
         var standardRow = new Dictionary<string, object?>();
-        
+
         foreach (var kvp in row)
         {
             standardRow[kvp.Key] = ConvertJsonElementToStandardValue(kvp.Value);
         }
-        
+
         return standardRow;
     }
 
@@ -274,8 +274,8 @@ public static class CosmosResultAnalyzer
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.String => element.GetString(),
-            JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal : 
-                                   element.TryGetInt64(out var longVal) ? longVal : 
+            JsonValueKind.Number => element.TryGetInt32(out var intVal) ? intVal :
+                                   element.TryGetInt64(out var longVal) ? longVal :
                                    element.GetDouble(),
             JsonValueKind.Array => element.EnumerateArray()
                                          .Select(ConvertJsonElementToStandardValue)

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DatabaseRag.Api.Models.Requests;
@@ -237,8 +238,14 @@ public class CosmosService : ICosmosService
                         if (results.Count == 1)
                         {
                             Console.WriteLine($"[DEBUG] Sample item keys: {string.Join(", ", row.Keys)}");
-                            var firstKeyValue = row.FirstOrDefault();
-                            Console.WriteLine($"[DEBUG] Sample item first key-value: {firstKeyValue.Key} = {firstKeyValue.Value}");
+                            if (row.Count > 0)
+                            {
+                                foreach (var kvp in row)
+                                {
+                                    Console.WriteLine($"[DEBUG] Sample item first key-value: {kvp.Key} = {kvp.Value}");
+                                    break; // Only show the first one
+                                }
+                            }
                         }
                     }
                     catch (Exception conversionEx)
@@ -321,7 +328,7 @@ public class CosmosService : ICosmosService
         {
             // Execute the query using existing logic
             var cosmosResponse = await ExecuteQueryAsync(request, connectionString, cancellationToken);
-            
+
             if (!cosmosResponse.Success)
             {
                 return new GenericQueryResponse
@@ -377,19 +384,19 @@ public class CosmosService : ICosmosService
     {
         var data = cosmosResponse.Data ?? new List<Dictionary<string, JsonElement>>();
         var details = cosmosResponse.AnalyticalDetails;
-        
+
         // Extract columns deterministically
         var columns = CosmosResultAnalyzer.ExtractColumns(data);
-        
+
         // Convert rows to standard format
         var rows = CosmosResultAnalyzer.ConvertToStandardRows(data);
-        
+
         // Generate description
         var description = GenerateQueryDescription(data.Count, columns.Length, details);
-        
+
         // Generate conclusion
         var conclusion = GenerateQueryConclusion(data, details);
-        
+
         return new GenericQueryResponse
         {
             Description = description,
@@ -430,19 +437,19 @@ public class CosmosService : ICosmosService
     {
         if (rowCount == 0)
             return "Query executed successfully but returned no results.";
-            
+
         var description = $"Query returned {rowCount} record{(rowCount == 1 ? "" : "s")} with {columnCount} column{(columnCount == 1 ? "" : "s")}.";
-        
+
         if (details != null)
         {
             description += $" Execution completed in {details.ExecutionTimeMs}ms consuming {details.RequestCharge:F2} RU.";
-            
+
             if (details.HasBusinessData)
             {
                 description += $" Results contain {details.BusinessColumnCount} business-relevant column{(details.BusinessColumnCount == 1 ? "" : "s")}.";
             }
         }
-        
+
         return description;
     }
 
@@ -456,9 +463,9 @@ public class CosmosService : ICosmosService
     {
         if (data.Count == 0)
             return "No data was found matching the query criteria.";
-            
+
         var conclusion = $"Successfully retrieved {data.Count} record{(data.Count == 1 ? "" : "s")} from Cosmos DB.";
-        
+
         if (details != null)
         {
             if (!details.HasBusinessData)
@@ -481,13 +488,13 @@ public class CosmosService : ICosmosService
                         break;
                 }
             }
-            
+
             if (details.JsonQuality?.Contains("Poor") == true)
             {
                 conclusion += " Note: Results contain a high proportion of null values.";
             }
         }
-        
+
         return conclusion;
     }
 
