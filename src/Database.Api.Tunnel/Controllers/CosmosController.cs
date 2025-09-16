@@ -25,28 +25,64 @@ public static class CosmosController
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Starting schema request for database: {request.DatabaseName}");
+
                 // Get connection string from header
                 if (!context.Request.Headers.TryGetValue("ConnectionString", out var connectionStringValues))
                 {
+                    System.Diagnostics.Debug.WriteLine("[SCHEMA ENDPOINT] ERROR: Missing ConnectionString header");
                     return Results.BadRequest(new { error = "ConnectionString header is required" });
                 }
 
                 var connectionString = connectionStringValues.FirstOrDefault();
                 if (string.IsNullOrWhiteSpace(connectionString))
                 {
+                    System.Diagnostics.Debug.WriteLine("[SCHEMA ENDPOINT] ERROR: Empty ConnectionString header");
                     return Results.BadRequest(new { error = "ConnectionString header cannot be empty" });
                 }
 
                 if (string.IsNullOrWhiteSpace(request.DatabaseName))
                 {
+                    System.Diagnostics.Debug.WriteLine("[SCHEMA ENDPOINT] ERROR: Missing DatabaseName");
                     return Results.BadRequest(new { error = "DatabaseName is required" });
                 }
 
+                System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Calling cosmos service for database: {request.DatabaseName}");
                 var response = await cosmosService.GetSchemaAsync(request, connectionString, context.RequestAborted);
-                return response.Success ? Results.Ok(response) : Results.BadRequest(response);
+
+                System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Service returned: Success={response.Success}");
+                if (response.Success && response.Schema != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Schema contains {response.Schema.Containers?.Count ?? 0} containers");
+                    if (response.Schema.Containers != null)
+                    {
+                        foreach (var container in response.Schema.Containers.Take(3))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Container: {container.Name} with {container.Properties?.Count ?? 0} properties");
+                        }
+                    }
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] Error in response: {response.Error}");
+                }
+
+                if (response.Success)
+                {
+                    System.Diagnostics.Debug.WriteLine("[SCHEMA ENDPOINT] Returning OK result");
+                    return Results.Ok(response);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[SCHEMA ENDPOINT] Returning BadRequest result");
+                    return Results.BadRequest(response);
+                }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] EXCEPTION: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SCHEMA ENDPOINT] STACK TRACE: {ex.StackTrace}");
+
                 var errorResponse = new CosmosSchemaResponse
                 {
                     Success = false,

@@ -46,29 +46,167 @@ public class CosmosService : ICosmosService
                 {
                     var container = database.GetContainer(containerProps.Id);
 
-                    // Get the last document to infer schema (most recent document structure)
-                    var lastDocQuery = new QueryDefinition("SELECT * FROM c ORDER BY c._ts DESC OFFSET 0 LIMIT 1");
-                    var lastDocIterator = container.GetItemQueryIterator<dynamic>(lastDocQuery);
+                    System.Diagnostics.Debug.WriteLine($"Processing container: {containerProps.Id}");
 
+                    // Get multiple recent documents to infer schema (sample last 20 documents for better type inference)
                     var properties = new List<CosmosPropertySchema>();
-                    if (lastDocIterator.HasMoreResults)
-                    {
-                        var lastDocResponse = await lastDocIterator.ReadNextAsync(cancellationToken);
-                        if (lastDocResponse.Any())
-                        {
-                            var lastDoc = lastDocResponse.First();
-                            var docDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(JsonSerializer.Serialize(lastDoc));
+                    var allDocuments = new List<Dictionary<string, JsonElement>>();
 
-                            foreach (var prop in docDict!)
+                    try
+                    {
+                        // First, try to get a simple count to see if there are any documents at all
+                        var countQuery = new QueryDefinition("SELECT VALUE COUNT(1) FROM c");
+                        var countIterator = container.GetItemQueryIterator<int>(countQuery);
+
+                        int documentCount = 0;
+                        if (countIterator.HasMoreResults)
+                        {
+                            var countResponse = await countIterator.ReadNextAsync(cancellationToken);
+                            documentCount = countResponse.FirstOrDefault();
+                            System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Total document count = {documentCount}");
+                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Document count = {documentCount}");
+                        }
+
+                        // If no documents, skip document retrieval but still log the result
+                        if (documentCount == 0)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Container is empty - no documents to analyze");
+                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Container is empty");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Found {documentCount} documents, attempting to retrieve samples...");
+                        }
+
+                        // Try multiple query approaches to ensure we can get documents
+                        var queries = new[]
+                        {
+                            new QueryDefinition("SELECT TOP 20 * FROM c"),
+                            new QueryDefinition("SELECT * FROM c OFFSET 0 LIMIT 20"),
+                            new QueryDefinition("SELECT * FROM c")
+                        };
+
+                        bool documentsFound = false;
+
+                        foreach (var query in queries)
+                        {
+                            if (documentsFound) break;
+
+                            try
                             {
-                                properties.Add(new CosmosPropertySchema
+                                Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Trying query: {query.QueryText}");
+                                var iterator = container.GetItemQueryIterator<dynamic>(query);
+
+                                if (iterator.HasMoreResults)
                                 {
-                                    Name = prop.Key,
-                                    JsonType = GetDetailedJsonType(prop.Value),
-                                    IsNullable = prop.Value.ValueKind == JsonValueKind.Null
-                                });
+                                    var docsResponse = await iterator.ReadNextAsync(cancellationToken);
+                                    System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Query '{query.QueryText}' returned {docsResponse.Count} documents");
+                                    Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Query returned {docsResponse.Count} documents");
+
+                                    if (docsResponse.Count > 0)
+                                    {
+                                        documentsFound = true;
+                                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Processing {docsResponse.Count} documents...");
+
+                                        foreach (var doc in docsResponse)
+                                        {
+                                            try
+                                            {
+                                                // Use the same conversion logic that works for query results
+                                                var docDict = CosmosItemConverter.ConvertCosmosItemToDictionary(doc);
+                                                System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Successfully processed document with {docDict.Count} properties");
+
+                                                if (docDict.Count > 0)
+                                                {
+                                                    allDocuments.Add(docDict);
+                                                    Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Added document with {docDict.Count} properties to analysis");
+
+                                                    // Log sample properties for debugging
+                                                    var sampleProps = docDict.Take(3).ToList();
+                                                    foreach (var prop in sampleProps)
+                                                    {
+                                                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Property '{prop.Key}' = {prop.Value.ValueKind} ({prop.Value.GetRawText()})");
+                                                        Console.WriteLine($"[COSMOS SCHEMA] Sample property: {prop.Key} = {prop.Value.ValueKind}");
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Document converted but resulted in empty dictionary");
+                                                }
+                                            }
+                                            catch (Exception docEx)
+                                            {
+                                                System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Error processing individual document: {docEx.Message}");
+                                                Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Error processing document: {docEx.Message}");
+                                            }
+                                        }
+
+                                        // If we got some documents, break out of the query loop
+                                        if (allDocuments.Any())
+                                        {
+                                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Successfully collected {allDocuments.Count} documents for analysis");
+                                            break;
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: No valid documents collected despite query returning results");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Query returned 0 documents");
+                                    }
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Query iterator has no results");
+                                }
+                            }
+                            catch (Exception queryEx)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Query '{query.QueryText}' failed: {queryEx.Message}");
+                                Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Query failed: {queryEx.Message}");
                             }
                         }
+
+                        if (!documentsFound)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: No documents found with any query method");
+                            Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: No documents found with any query method");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: General error during document retrieval: {ex.Message}");
+                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: General error: {ex.Message}");
+                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Stack trace: {ex.StackTrace}");
+                    }
+
+                    Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Final document count for analysis: {allDocuments.Count}");
+
+                    if (allDocuments.Any())
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Analyzing {allDocuments.Count} documents");
+                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Starting property analysis on {allDocuments.Count} documents");
+
+                        properties = AnalyzePropertyTypesAcrossDocuments(allDocuments);
+
+                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Analysis resulted in {properties.Count} properties");
+                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: Property analysis completed - found {properties.Count} unique properties");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: No documents to analyze - container appears to be empty");
+                        Console.WriteLine($"[COSMOS SCHEMA] Container {containerProps.Id}: No documents to analyze - container appears to be empty or inaccessible");
+                        // For empty containers, we still create the container entry but with no properties
+                        properties = new List<CosmosPropertySchema>();
+                    }
+
+                    // Log the final properties being added to this container
+                    System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Adding container to schema with {properties.Count} properties");
+                    foreach (var prop in properties.Take(5)) // Log first 5 properties
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Container {containerProps.Id}: Property '{prop.Name}' (Type: {prop.JsonType}, Nullable: {prop.IsNullable})");
                     }
 
                     containers.Add(new CosmosContainerSchema
@@ -91,6 +229,46 @@ public class CosmosService : ICosmosService
                 }
             };
 
+            // Enhanced logging for final schema summary
+            System.Diagnostics.Debug.WriteLine($"FINAL SCHEMA SUMMARY for database '{request.DatabaseName}':");
+            System.Diagnostics.Debug.WriteLine($"Total containers: {containers.Count}");
+            var totalProperties = 0;
+            foreach (var container in containers)
+            {
+                var propCount = container.Properties.Count;
+                totalProperties += propCount;
+                System.Diagnostics.Debug.WriteLine($"  Container '{container.Name}': {propCount} properties, PartitionKey: {container.PartitionKeyPath}");
+
+                // Log sample properties for each container
+                foreach (var prop in container.Properties.Take(3))
+                {
+                    System.Diagnostics.Debug.WriteLine($"    Property: {prop.Name} ({prop.JsonType}) - Nullable: {prop.IsNullable}");
+                }
+                if (container.Properties.Count > 3)
+                {
+                    System.Diagnostics.Debug.WriteLine($"    ... and {container.Properties.Count - 3} more properties");
+                }
+            }
+            System.Diagnostics.Debug.WriteLine($"Total properties across all containers: {totalProperties}");
+
+            // Validate that schema is not null and contains expected data
+            if (schema.Schema == null)
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: Schema is null!");
+                return new CosmosSchemaResponse
+                {
+                    Success = false,
+                    Error = "Schema could not be generated",
+                    Schema = null
+                };
+            }
+
+            if (schema.Schema.Containers == null || schema.Schema.Containers.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("WARNING: No containers found in schema");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Schema response created successfully. Success: {schema.Success}");
             return schema;
         }
         catch (Exception ex)
@@ -505,33 +683,328 @@ public class CosmosService : ICosmosService
     /// <returns>Detailed type description</returns>
     private static string GetDetailedJsonType(JsonElement element)
     {
-        return element.ValueKind switch
+        return GetDetailedJsonType(element, 0);
+    }
+
+    /// <summary>
+    /// Determines the specific number type (integer, decimal, or float)
+    /// </summary>
+    /// <param name="element">The JsonElement representing a number</param>
+    /// <returns>Specific number type description</returns>
+    private static string GetNumberType(JsonElement element)
+    {
+        if (element.TryGetInt32(out _))
         {
-            JsonValueKind.Null => "null",
-            JsonValueKind.String => "string",
-            JsonValueKind.Number => element.TryGetInt32(out _) ? "integer" : "number",
-            JsonValueKind.True or JsonValueKind.False => "boolean",
-            JsonValueKind.Object => "object",
-            JsonValueKind.Array => GetArrayType(element),
-            _ => "unknown"
-        };
+            return "integer";
+        }
+
+        if (element.TryGetInt64(out _))
+        {
+            return "long";
+        }
+
+        if (element.TryGetDecimal(out _))
+        {
+            return "decimal";
+        }
+
+        if (element.TryGetDouble(out _))
+        {
+            return "number";
+        }
+
+        return "number"; // fallback
     }
 
     /// <summary>
     /// Determines the array type by examining array elements
     /// </summary>
     /// <param name="arrayElement">The JsonElement representing an array</param>
+    /// <param name="depth">Recursion depth to prevent infinite loops</param>
     /// <returns>Array type description</returns>
-    private static string GetArrayType(JsonElement arrayElement)
+    private static string GetArrayType(JsonElement arrayElement, int depth = 0)
     {
-        if (arrayElement.GetArrayLength() == 0)
+        // Prevent infinite recursion with deeply nested arrays
+        if (depth > 5)
+        {
+            return "array";
+        }
+
+        var arrayLength = arrayElement.GetArrayLength();
+
+        if (arrayLength == 0)
         {
             return "array"; // Empty array - generic type
         }
 
-        var firstElement = arrayElement.EnumerateArray().First();
-        var elementType = GetDetailedJsonType(firstElement);
-        return $"array<{elementType}>";
+        try
+        {
+            // Analyze multiple elements to determine the most common type
+            var elementTypes = new Dictionary<string, int>();
+            var elementsToAnalyze = Math.Min(arrayLength, 10); // Analyze up to 10 elements for performance
+
+            var arrayEnumerator = arrayElement.EnumerateArray();
+            var elementIndex = 0;
+
+            foreach (var element in arrayEnumerator)
+            {
+                if (elementIndex >= elementsToAnalyze) break;
+
+                var elementType = GetDetailedJsonType(element, depth + 1);
+
+                // Defensive check: prevent infinite recursion and malformed types
+                if (string.IsNullOrEmpty(elementType) || elementType.Contains("array<array<array<"))
+                {
+                    elementType = "unknown";
+                }
+
+                if (elementTypes.ContainsKey(elementType))
+                {
+                    elementTypes[elementType]++;
+                }
+                else
+                {
+                    elementTypes[elementType] = 1;
+                }
+
+                elementIndex++;
+            }
+
+            // If all elements are the same type, return that type
+            if (elementTypes.Count == 1)
+            {
+                var singleType = elementTypes.Keys.First();
+                // Ensure we don't create malformed array types
+                if (string.IsNullOrEmpty(singleType) || singleType == "unknown")
+                {
+                    return "array";
+                }
+                return $"array<{singleType}>";
+            }
+
+            // If mixed types, return the most common one or indicate mixed
+            if (elementTypes.Count > 1)
+            {
+                var validTypes = elementTypes.Where(kvp => !string.IsNullOrEmpty(kvp.Key) && kvp.Key != "unknown").ToList();
+
+                if (validTypes.Any())
+                {
+                    var mostCommonType = validTypes.OrderByDescending(kvp => kvp.Value).First().Key;
+
+                    // If we have multiple valid types, create a union type
+                    if (validTypes.Count > 1)
+                    {
+                        var allTypes = validTypes.Select(kvp => kvp.Key).OrderBy(k => k).ToList();
+                        return $"array<{string.Join("|", allTypes)}>";
+                    }
+
+                    return $"array<{mostCommonType}>";
+                }
+            }
+
+            return "array"; // fallback
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error in GetArrayType: {ex.Message}");
+            return "array";
+        }
+    }
+
+    /// <summary>
+    /// Gets detailed JSON type information from a JsonElement including array element types
+    /// </summary>
+    /// <param name="element">The JsonElement to analyze</param>
+    /// <param name="depth">Recursion depth to prevent infinite loops</param>
+    /// <returns>Detailed type description</returns>
+    private static string GetDetailedJsonType(JsonElement element, int depth)
+    {
+        try
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.Null => "null",
+                JsonValueKind.String => "string",
+                JsonValueKind.Number => GetNumberType(element),
+                JsonValueKind.True or JsonValueKind.False => "boolean",
+                JsonValueKind.Object => "object",
+                JsonValueKind.Array => GetArrayType(element, depth),
+                _ => "unknown"
+            };
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error in GetDetailedJsonType: {ex.Message}");
+            return "unknown";
+        }
+    }
+
+    /// <summary>
+    /// Analyzes property types across multiple documents to determine accurate schema
+    /// </summary>
+    /// <param name="documents">List of documents to analyze</param>
+    /// <returns>List of property schemas with accurate types</returns>
+    private static List<CosmosPropertySchema> AnalyzePropertyTypesAcrossDocuments(List<Dictionary<string, JsonElement>> documents)
+    {
+        System.Diagnostics.Debug.WriteLine($"=== ANALYSIS START: Analyzing {documents.Count} documents ===");
+        Console.WriteLine($"[COSMOS SCHEMA] === PROPERTY ANALYSIS START: Analyzing {documents.Count} documents ===");
+
+        var propertyTypeMap = new Dictionary<string, Dictionary<string, int>>();
+        var propertyPresenceCount = new Dictionary<string, int>();
+        var totalDocuments = documents.Count;
+
+        // Collect all property types and their frequency counts
+        foreach (var doc in documents)
+        {
+            Console.WriteLine($"[COSMOS SCHEMA] Processing document with {doc.Count} properties");
+            foreach (var prop in doc)
+            {
+                var propName = prop.Key;
+                var propType = GetDetailedJsonType(prop.Value);
+
+                Console.WriteLine($"[COSMOS SCHEMA] Found property: {propName} = {propType}");
+
+                // Track types and their frequencies for this property
+                if (!propertyTypeMap.ContainsKey(propName))
+                {
+                    propertyTypeMap[propName] = new Dictionary<string, int>();
+                }
+
+                if (propertyTypeMap[propName].ContainsKey(propType))
+                {
+                    propertyTypeMap[propName][propType]++;
+                }
+                else
+                {
+                    propertyTypeMap[propName][propType] = 1;
+                }
+
+                // Track presence count
+                if (!propertyPresenceCount.ContainsKey(propName))
+                {
+                    propertyPresenceCount[propName] = 0;
+                }
+                propertyPresenceCount[propName]++;
+            }
+        }
+
+        // Build property schemas
+        var properties = new List<CosmosPropertySchema>();
+        foreach (var propEntry in propertyTypeMap)
+        {
+            var propName = propEntry.Key;
+            var typeCounts = propEntry.Value;
+            var presenceCount = propertyPresenceCount[propName];
+
+            // Determine if property is nullable
+            var isNullable = presenceCount < totalDocuments ||
+                           typeCounts.ContainsKey("null");
+
+            // Determine the best type representation
+            var jsonType = DetermineOptimalType(typeCounts, totalDocuments);
+
+            properties.Add(new CosmosPropertySchema
+            {
+                Name = propName,
+                JsonType = jsonType,
+                IsNullable = isNullable
+            });
+        }
+
+        var orderedProperties = properties.OrderBy(p => p.Name).ToList();
+        System.Diagnostics.Debug.WriteLine($"=== ANALYSIS COMPLETE: Found {orderedProperties.Count} properties ===");
+        Console.WriteLine($"[COSMOS SCHEMA] === PROPERTY ANALYSIS COMPLETE: Found {orderedProperties.Count} properties ===");
+
+        foreach (var prop in orderedProperties.Take(10)) // Log first 10 properties
+        {
+            System.Diagnostics.Debug.WriteLine($"ANALYSIS RESULT: Property '{prop.Name}' (Type: {prop.JsonType}, Nullable: {prop.IsNullable})");
+            Console.WriteLine($"[COSMOS SCHEMA] Property: {prop.Name} ({prop.JsonType}) - Nullable: {prop.IsNullable}");
+        }
+
+        if (orderedProperties.Count > 10)
+        {
+            Console.WriteLine($"[COSMOS SCHEMA] ... and {orderedProperties.Count - 10} more properties");
+        }
+
+        return orderedProperties;
+    }
+
+    /// <summary>
+    /// Determines the optimal type representation based on type frequency analysis
+    /// </summary>
+    /// <param name="typeCounts">Dictionary of type names and their occurrence counts</param>
+    /// <param name="totalDocuments">Total number of documents analyzed</param>
+    /// <returns>Optimal type representation</returns>
+    private static string DetermineOptimalType(Dictionary<string, int> typeCounts, int totalDocuments)
+    {
+        // Remove null from type analysis for primary type determination
+        var nonNullTypes = typeCounts.Where(kvp => kvp.Key != "null").ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+        if (!nonNullTypes.Any())
+        {
+            return "null"; // Only null values found
+        }
+
+        if (nonNullTypes.Count == 1)
+        {
+            return nonNullTypes.Keys.First(); // Single consistent type
+        }
+
+        // Handle array type consolidation - merge generic "array" with specific array types
+        var arrayTypes = nonNullTypes.Where(kvp => kvp.Key.StartsWith("array")).ToList();
+        if (arrayTypes.Count > 1)
+        {
+            // Check if we have both generic "array" and specific array types
+            var hasGenericArray = arrayTypes.Any(kvp => kvp.Key == "array");
+            var specificArrayTypes = arrayTypes.Where(kvp => kvp.Key != "array").ToList();
+
+            if (hasGenericArray && specificArrayTypes.Any())
+            {
+                // Use the most specific array type
+                var mostFrequentSpecificArray = specificArrayTypes.OrderByDescending(kvp => kvp.Value).First();
+
+                // Remove array types from nonNullTypes and add the consolidated one
+                var consolidatedTypes = nonNullTypes.Where(kvp => !kvp.Key.StartsWith("array")).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                consolidatedTypes[mostFrequentSpecificArray.Key] = arrayTypes.Sum(kvp => kvp.Value);
+                nonNullTypes = consolidatedTypes;
+            }
+        }
+
+        // Re-check if we now have a single type after consolidation
+        if (nonNullTypes.Count == 1)
+        {
+            return nonNullTypes.Keys.First();
+        }
+
+        // Handle multiple types - find the most frequent one
+        var mostFrequentType = nonNullTypes.OrderByDescending(kvp => kvp.Value).First();
+        var mostFrequentCount = mostFrequentType.Value;
+
+        // If one type represents more than 80% of occurrences, use that type
+        var dominanceThreshold = 0.8;
+        if ((double)mostFrequentCount / totalDocuments >= dominanceThreshold)
+        {
+            return mostFrequentType.Key;
+        }
+
+        // Handle numeric type consolidation
+        var numericTypes = new[] { "integer", "long", "decimal", "number" };
+        var hasMultipleNumericTypes = nonNullTypes.Keys.Count(t => numericTypes.Contains(t)) > 1;
+
+        if (hasMultipleNumericTypes)
+        {
+            // Consolidate to the most general numeric type
+            if (nonNullTypes.ContainsKey("decimal") || nonNullTypes.ContainsKey("number"))
+                return "number";
+            if (nonNullTypes.ContainsKey("long"))
+                return "long";
+            if (nonNullTypes.ContainsKey("integer"))
+                return "integer";
+        }
+
+        // For truly mixed types, create a union type
+        var sortedTypes = nonNullTypes.Keys.OrderBy(t => t).ToList();
+        return string.Join("|", sortedTypes);
     }
 
     /// <summary>

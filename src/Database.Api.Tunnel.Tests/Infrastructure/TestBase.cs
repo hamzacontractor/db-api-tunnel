@@ -20,7 +20,7 @@ namespace Database.Api.Tunnel.Tests.Infrastructure
             // Build configuration from test settings
             var configBuilder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.Test.json", optional: false, reloadOnChange: true)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddEnvironmentVariables();
 
             Configuration = configBuilder.Build();
