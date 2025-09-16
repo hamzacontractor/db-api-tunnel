@@ -6,7 +6,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Copy published application
-COPY src/DatabaseRag.Api/publish/ .
+COPY Database.Api.Tunnel/publish/ .
 
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app
@@ -26,4 +26,4 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Set the entry point
-ENTRYPOINT ["dotnet", "DatabaseRag.Api.dll"]
+ENTRYPOINT ["dotnet", "Database.Api.Tunnel.dll"]

@@ -1,6 +1,6 @@
-# DatabaseRag.Api Docker Setup and Azure Container Registry Deployment
+# Database.Api.Tunnel Docker Setup and Azure Container Registry Deployment
 
-This directory contains the Docker configuration for containerizing the DatabaseRag.Api application and deploying it to Azure Container Registry (ACR).
+This directory contains the Docker configuration for containerizing the Database.Api.Tunnel application and deploying it to Azure Container Registry (ACR).
 
 ## 📁 Files Overview
 
@@ -96,8 +96,8 @@ The Dockerfile uses a multi-stage build for optimization with the correct src/ f
 ### Build Context
 
 The Docker build context is set to the `../src` directory, which contains:
-- `DatabaseRag.Api/` - Main API project
-- `DatabaseRag.Api.Tests/` - Test project
+- `Database.Api.Tunnel/` - Main API project
+- `Database.Api.Tunnel.Tests/` - Test project
 
 ### Updated Dockerfile Structure
 
@@ -105,13 +105,13 @@ The Dockerfile has been refactored to work with the new project structure:
 
 ```dockerfile
 # Dockerfile paths are now relative to src/ folder:
-COPY DatabaseRag.Api/DatabaseRag.Api.csproj DatabaseRag.Api/
-COPY DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj DatabaseRag.Api.Tests/
+COPY Database.Api.Tunnel/Database.Api.Tunnel.csproj Database.Api.Tunnel/
+COPY Database.Api.Tunnel.Tests/Database.Api.Tunnel.Tests.csproj Database.Api.Tunnel.Tests/
 
 # Restore, build, and publish commands updated accordingly:
-RUN dotnet restore DatabaseRag.Api/DatabaseRag.Api.csproj
-RUN dotnet build DatabaseRag.Api/DatabaseRag.Api.csproj -c Release --no-restore
-RUN dotnet publish DatabaseRag.Api/DatabaseRag.Api.csproj -c Release -o /app/publish
+RUN dotnet restore Database.Api.Tunnel/Database.Api.Tunnel.csproj
+RUN dotnet build Database.Api.Tunnel/Database.Api.Tunnel.csproj -c Release --no-restore
+RUN dotnet publish Database.Api.Tunnel/Database.Api.Tunnel.csproj -c Release -o /app/publish
 ```
 
 ### Docker Compose Configuration
@@ -120,7 +120,7 @@ The docker-compose.yml has been updated with correct build context:
 
 ```yaml
 services:
-  databaserag-api:
+  database-api-tunnel:
     build:
       context: ../src              # Build from src/ directory
       dockerfile: ../.docker/Dockerfile  # Use Dockerfile from .docker/

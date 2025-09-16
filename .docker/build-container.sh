@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# build-container.sh - Build script for DatabaseRag.Api container
+# build-container.sh - Build script for Database.Api.Tunnel container
 
 set -e  # Exit on any error
 
-echo "🐳 Building DatabaseRag.Api Container"
+echo "🐳 Building Database.Api.Tunnel Container"
 echo "====================================="
 
 # Configuration
@@ -38,7 +38,7 @@ else
     
     # Fallback to pre-built approach
     echo "🔨 Building application locally first..."
-    cd DatabaseRag.Api
+    cd Database.Api.Tunnel
     dotnet publish -c Release -o ./publish
     cd ..
     

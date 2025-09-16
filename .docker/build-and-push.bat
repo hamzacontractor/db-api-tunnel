@@ -1,14 +1,14 @@
 @echo off
-REM build-and-push.bat - Build and push DatabaseRag.Api to Azure Container Registry
+REM build-and-push.bat - Build and push Database.Api.Tunnel to Azure Container Registry
 
 setlocal enabledelayedexpansion
 
-echo 🚀 Build and Push DatabaseRag.Api to Azure Container Registry
+echo 🚀 Build and Push Database.Api.Tunnel to Azure Container Registry
 echo ==========================================================
 
 REM Configuration - Update these values for your environment
 set ACR_NAME=youracrname
-set IMAGE_NAME=db-rag-api
+set IMAGE_NAME=db-api-tunnel
 if "%1"=="" (
     set TAG=latest
 ) else (
