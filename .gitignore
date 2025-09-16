@@ -55,3 +55,17 @@ nunit-*.xml
 
 #file:appsettings.Test.json
 *appsettings*.json
+src/Database.Api.Tunnel.Tests/Properties/launchSettings.json
+
+# config folders like .vs and .vscode
+.vs/
+.vscode/
+
+# User-specific files
+src/Database.Api.Tunnel/Database.Api.Tunnel.csproj.user
+
+# PublishProfiles
+!Published/win-x64/*.exe
+Published/*
+
+PublishProfiles/
