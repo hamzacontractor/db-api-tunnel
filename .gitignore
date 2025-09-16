@@ -64,8 +64,7 @@ src/Database.Api.Tunnel.Tests/Properties/launchSettings.json
 # User-specific files
 src/Database.Api.Tunnel/Database.Api.Tunnel.csproj.user
 
-# PublishProfiles
-!Published/win-x64/*.exe
-Published/*
+# Published files except executable
+Published/
 
 PublishProfiles/
