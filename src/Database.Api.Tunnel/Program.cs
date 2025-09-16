@@ -1,11 +1,15 @@
+using System.Text.Json;
 using Database.Api.Tunnel.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure JSON serialization with source generation
+// Configure JSON serialization with source generation and enhanced options
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonSerializerContext.Default);
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.WriteIndented = true;
+    options.SerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
 });
 
 // Add services to the container

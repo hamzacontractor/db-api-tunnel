@@ -16,10 +16,13 @@ namespace Database.Api.Tunnel.Extensions;
 [JsonSerializable(typeof(CosmosQueryResponse))]
 [JsonSerializable(typeof(DatabaseSchemaResponse))]
 [JsonSerializable(typeof(CosmosSchemaResponse))]
+[JsonSerializable(typeof(SchemaSummary))]
 [JsonSerializable(typeof(DatabaseSchemaInfo))]
 [JsonSerializable(typeof(CosmosDatabaseSchema))]
 [JsonSerializable(typeof(CosmosContainerSchema))]
 [JsonSerializable(typeof(CosmosPropertySchema))]
+[JsonSerializable(typeof(List<CosmosContainerSchema>))]
+[JsonSerializable(typeof(List<CosmosPropertySchema>))]
 [JsonSerializable(typeof(TableSchema))]
 [JsonSerializable(typeof(ColumnSchema))]
 [JsonSerializable(typeof(ForeignKeySchemaResponse))]
@@ -35,6 +38,9 @@ namespace Database.Api.Tunnel.Extensions;
 [JsonSerializable(typeof(List<Dictionary<string, object>>))]
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(HealthResponse))]
+[JsonSerializable(typeof(DateTime))]
+[JsonSerializable(typeof(bool))]
+[JsonSerializable(typeof(string))]
 public partial class AppJsonSerializerContext : JsonSerializerContext
 {
 }

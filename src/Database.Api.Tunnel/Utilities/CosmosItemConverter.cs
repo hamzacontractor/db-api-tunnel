@@ -21,21 +21,23 @@ public static class CosmosItemConverter
         {
             // First, check if we can convert it to a string representation
             var itemType = item.GetType();
-            Console.WriteLine($"[DEBUG] Item type: {itemType.Name}");
+            Console.WriteLine($"[COSMOS CONVERTER] Item type: {itemType.Name}");
 
             // Try to see if the item has a ToString method that gives us JSON
-            var jsonString = item.ToString();
-            Console.WriteLine($"[DEBUG] Item ToString: {jsonString}");
+            var jsonString = item?.ToString();
+            Console.WriteLine($"[COSMOS CONVERTER] Item ToString length: {jsonString?.Length ?? 0}");
 
             // If ToString gives us valid JSON, use that
-            if (jsonString.StartsWith("{") && jsonString.EndsWith("}"))
+            if (!string.IsNullOrEmpty(jsonString) && jsonString.StartsWith("{") && jsonString.EndsWith("}"))
             {
+                Console.WriteLine($"[COSMOS CONVERTER] Using direct JSON parsing from ToString");
                 var directJsonDoc = JsonDocument.Parse(jsonString);
                 var directRoot = directJsonDoc.RootElement;
 
                 if (directRoot.ValueKind == JsonValueKind.Object)
                 {
                     var directResult = ConvertJsonElementToDictionary(directRoot);
+                    Console.WriteLine($"[COSMOS CONVERTER] Direct conversion resulted in {directResult.Count} properties");
 
                     // Clone all JsonElements to make them independent
                     var directClonedResult = new Dictionary<string, JsonElement>();
@@ -51,19 +53,20 @@ public static class CosmosItemConverter
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] Direct conversion failed: {ex.Message}");
+            Console.WriteLine($"[COSMOS CONVERTER] Direct conversion failed: {ex.Message}");
         }
 
+        Console.WriteLine($"[COSMOS CONVERTER] Falling back to JsonSerializer.Serialize");
         // Fallback: Serialize the SDK item to JSON to have a stable representation
         var json = JsonSerializer.Serialize(item);
-        Console.WriteLine($"[DEBUG] Fallback serialized JSON: {json}");
+        Console.WriteLine($"[COSMOS CONVERTER] Fallback serialized JSON length: {json?.Length ?? 0}");
 
         // Parse the JSON and create a new JsonDocument that we own and control disposal of
         var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
         // Enhanced debugging for root element
-        Console.WriteLine($"[DEBUG] Root element type: {root.ValueKind}");
+        Console.WriteLine($"[COSMOS CONVERTER] Root element type: {root.ValueKind}");
 
         Dictionary<string, JsonElement> result;
 
@@ -71,13 +74,13 @@ public static class CosmosItemConverter
         if (root.ValueKind == JsonValueKind.Object)
         {
             result = ConvertJsonElementToDictionary(root);
-            Console.WriteLine($"[DEBUG] Converted dictionary has {result.Count} properties");
+            Console.WriteLine($"[COSMOS CONVERTER] Converted dictionary has {result.Count} properties");
             // Log first 3 properties using proper enumeration
             var count = 0;
             foreach (var kvp in result)
             {
                 if (count >= 3) break;
-                Console.WriteLine($"[DEBUG] Property '{kvp.Key}': {kvp.Value.ValueKind} = {kvp.Value.GetRawText()}");
+                Console.WriteLine($"[COSMOS CONVERTER] Property '{kvp.Key}': {kvp.Value.ValueKind}");
                 count++;
             }
         }
