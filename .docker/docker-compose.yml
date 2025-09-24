@@ -2,12 +2,12 @@ version: '3.8'
 
 services:
   # Main API service
-  databaserag-api:
+  database-api-tunnel:
     build:
       context: ../src
       dockerfile: ../.docker/Dockerfile
       target: runtime
-    container_name: databaserag-api
+    container_name: database-api-tunnel
     ports:
       - "8080:8080"
     environment:
@@ -38,12 +38,12 @@ services:
   #   restart: unless-stopped
 
   # Test runner service (for running tests in isolation)
-  databaserag-tests:
+  database-api-tunnel-tests:
     build:
       context: ../src
       dockerfile: ../.docker/Dockerfile
       target: test
-    container_name: databaserag-tests
+    container_name: database-api-tunnel-tests
     volumes:
       - ./test-results:/app/test-results
     environment:
@@ -52,12 +52,12 @@ services:
       - testing
 
   # Development tools container (optional)
-  databaserag-dev:
+  database-api-tunnel-dev:
     build:
       context: ../src
       dockerfile: ../.docker/Dockerfile
       target: build
-    container_name: databaserag-dev
+    container_name: database-api-tunnel-dev
     volumes:
       - .:/workspace
       - ~/.nuget/packages:/root/.nuget/packages
@@ -72,5 +72,5 @@ services:
 
 networks:
   default:
-    name: databaserag-network
+    name: database-api-tunnel-network
     driver: bridge

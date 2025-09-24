@@ -1,13 +1,13 @@
 @echo off
-REM build-container.bat - Windows build script for DatabaseRag.Api container
+REM build-container.bat - Windows build script for Database.Api.Tunnel container
 
 setlocal enabledelayedexpansion
 
-echo 🐳 Building DatabaseRag.Api Container
+echo 🐳 Building Database.Api.Tunnel Container
 echo =====================================
 
 REM Configuration
-set IMAGE_NAME=db-rag-api
+set IMAGE_NAME=db-api-tunnel
 if "%1"=="" (
     set TAG=latest
 ) else (
@@ -40,11 +40,11 @@ if errorlevel 1 (
     
     REM Fallback to pre-built approach
     echo 🔨 Building application locally first...
-    cd DatabaseRag.Api
+    cd Database.Api.Tunnel
     dotnet publish -c Release -o .\publish
     if errorlevel 1 (
         echo ❌ Failed to build application locally
-        cd ..\..\docker
+        cd ..\..\.docker
         exit /b 1
     )
     cd ..
@@ -105,10 +105,10 @@ echo.
 echo 🎉 Build completed successfully!
 echo.
 echo 🚀 Quick Start Commands:
-echo    Run container:    docker run -d -p 8080:8080 --name db-rag-api %FULL_NAME%
+echo    Run container:    docker run -d -p 8080:8080 --name db-api-tunnel %FULL_NAME%
 echo    Check health:     curl http://localhost:8080/health
-echo    Stop container:   docker stop db-rag-api
-echo    Remove container: docker rm db-rag-api
+echo    Stop container:   docker stop db-api-tunnel
+echo    Remove container: docker rm db-api-tunnel
 echo.
 echo 📖 For more information, see CONTAINER-QUICKSTART.md
 

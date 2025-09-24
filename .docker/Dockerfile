@@ -1,30 +1,30 @@
-# Multi-stage Dockerfile for DatabaseRag.Api with testing
+# Multi-stage Dockerfile for Database.Api.Tunnel with testing
 # Stage 1: Build and test stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
 # Copy project files first to leverage Docker layer caching
-COPY DatabaseRag.Api/DatabaseRag.Api.csproj DatabaseRag.Api/
-COPY DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj DatabaseRag.Api.Tests/
+COPY Database.Api.Tunnel/Database.Api.Tunnel.csproj Database.Api.Tunnel/
+COPY Database.Api.Tunnel.Tests/Database.Api.Tunnel.Tests.csproj Database.Api.Tunnel.Tests/
 
 # Restore dependencies for both projects (separate layer for better caching)
-RUN dotnet restore DatabaseRag.Api/DatabaseRag.Api.csproj
-RUN dotnet restore DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj
+RUN dotnet restore Database.Api.Tunnel/Database.Api.Tunnel.csproj
+RUN dotnet restore Database.Api.Tunnel.Tests/Database.Api.Tunnel.Tests.csproj
 
 # Copy source code for both projects
-COPY DatabaseRag.Api/ DatabaseRag.Api/
-COPY DatabaseRag.Api.Tests/ DatabaseRag.Api.Tests/
+COPY Database.Api.Tunnel/ Database.Api.Tunnel/
+COPY Database.Api.Tunnel.Tests/ Database.Api.Tunnel.Tests/
 
 # Build both projects
-RUN dotnet build DatabaseRag.Api/DatabaseRag.Api.csproj -c Release --no-restore
-RUN dotnet build DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj -c Release --no-restore
+RUN dotnet build Database.Api.Tunnel/Database.Api.Tunnel.csproj -c Release --no-restore
+RUN dotnet build Database.Api.Tunnel.Tests/Database.Api.Tunnel.Tests.csproj -c Release --no-restore
 
 # Stage 2: Test stage (optional - can be skipped in production builds)
 FROM build AS test
 WORKDIR /app
 
 # Run tests (this stage can be targeted specifically for CI/CD)
-RUN dotnet test DatabaseRag.Api.Tests/DatabaseRag.Api.Tests.csproj \
+RUN dotnet test Database.Api.Tunnel.Tests/Database.Api.Tunnel.Tests.csproj \
     -c Release \
     --no-build \
     --no-restore \
@@ -36,7 +36,7 @@ FROM build AS publish
 WORKDIR /app
 
 # Publish the API in Release mode
-RUN dotnet publish DatabaseRag.Api/DatabaseRag.Api.csproj \
+RUN dotnet publish Database.Api.Tunnel/Database.Api.Tunnel.csproj \
     -c Release \
     -o /app/publish \
     --no-restore \
@@ -73,4 +73,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD dotnet --info > /dev/null || exit 1
 
 # Set the entry point
-ENTRYPOINT ["dotnet", "DatabaseRag.Api.dll"]
+ENTRYPOINT ["dotnet", "Database.Api.Tunnel.dll"]
