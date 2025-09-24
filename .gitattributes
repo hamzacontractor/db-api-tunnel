@@ -1,0 +1,2 @@
+# Track all files in the Downloads folder with Git LFS and disable text normalization
+/Downloads/** filter=lfs diff=lfs merge=lfs -text
